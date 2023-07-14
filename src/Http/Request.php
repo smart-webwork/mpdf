@@ -2,6 +2,9 @@
 
 namespace Mpdf\Http;
 
+use InvalidArgumentException;
+use Psr\Http\Message\MessageInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
@@ -10,43 +13,41 @@ use Psr\Http\Message\UriInterface;
  *
  * @link https://github.com/Nyholm/psr7/blob/master/src/Uri.php
  */
-class Request implements \Psr\Http\Message\RequestInterface
+class Request implements RequestInterface
 {
 
-	/** @var string */
-	private $method;
+  /** @var string */
+	private string $method;
 
-	/** @var null|string */
-	private $requestTarget;
+  /** @var null|string */
+	private ?string $requestTarget;
 
-	/** @var null|UriInterface */
-	private $uri;
+	private Uri|string|null|UriInterface $uri;
 
-	/** @var array Map of all registered headers, as original name => array of values */
-	private $headers = [];
+  /** @var array Map of all registered headers, as original name => array of values */
+	private array $headers = [];
 
-	/** @var array Map of lowercase header name => original name at registration */
-	private $headerNames = [];
+  /** @var array Map of lowercase header name => original name at registration */
+	private array $headerNames = [];
 
-	/** @var string */
-	private $protocol;
+  /** @var string */
+	private string $protocol;
 
-	/** @var StreamInterface */
-	private $stream;
+	private Stream|StreamInterface $stream;
 
-	/**
-	 * @param string                               $method  HTTP method
-	 * @param string|UriInterface                  $uri     URI
-	 * @param array                                $headers Request headers
-	 * @param string|null|resource|StreamInterface $body    Request body
-	 * @param string                               $version Protocol version
-	 */
+  /**
+   * @param string $method HTTP method
+   * @param string|UriInterface $uri URI
+   * @param array $headers Request headers
+   * @param string|StreamInterface|null $body Request body
+   * @param string $version Protocol version
+   */
 	public function __construct(
-		$method,
-		$uri,
-		array $headers = [],
-		$body = null,
-		$version = '1.1'
+		string                 $method,
+		UriInterface|string    $uri,
+		array                  $headers = [],
+		StreamInterface|string $body = null,
+		string                 $version = '1.1'
 	) {
 		if (!($uri instanceof UriInterface)) {
 			$uri = new Uri($uri);
@@ -66,27 +67,27 @@ class Request implements \Psr\Http\Message\RequestInterface
 		}
 	}
 
-	public function getRequestTarget()
+	public function getRequestTarget(): string
 	{
 		if ($this->requestTarget !== null) {
 			return $this->requestTarget;
 		}
 
 		$target = $this->uri->getPath();
-		if ($target == '') {
+		if ($target === '') {
 			$target = '/';
 		}
-		if ($this->uri->getQuery() != '') {
+		if ($this->uri->getQuery() !== '') {
 			$target .= '?'.$this->uri->getQuery();
 		}
 
 		return $target;
 	}
 
-	public function withRequestTarget($requestTarget)
+	public function withRequestTarget($requestTarget): RequestInterface
 	{
 		if (preg_match('#\s#', $requestTarget)) {
-			throw new \InvalidArgumentException('Invalid request target provided; cannot contain whitespace');
+			throw new InvalidArgumentException('Invalid request target provided; cannot contain whitespace');
 		}
 
 		$new = clone $this;
@@ -95,12 +96,12 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	public function getMethod()
+	public function getMethod(): string
 	{
 		return $this->method;
 	}
 
-	public function withMethod($method)
+	public function withMethod($method): RequestInterface
 	{
 		$new = clone $this;
 		$new->method = $method;
@@ -108,12 +109,12 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	public function getUri()
+	public function getUri(): UriInterface
 	{
 		return $this->uri;
 	}
 
-	public function withUri(UriInterface $uri, $preserveHost = false)
+	public function withUri(UriInterface $uri, $preserveHost = false): RequestInterface
 	{
 		if ($uri === $this->uri) {
 			return $this;
@@ -129,11 +130,11 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	private function updateHostFromUri()
+	private function updateHostFromUri(): void
 	{
 		$host = $this->uri->getHost();
 
-		if ($host == '') {
+		if ($host === '') {
 			return;
 		}
 
@@ -147,17 +148,17 @@ class Request implements \Psr\Http\Message\RequestInterface
 			$header = 'Host';
 			$this->headerNames['host'] = 'Host';
 		}
-		// Ensure Host is the first header.
-		// See: http://tools.ietf.org/html/rfc7230#section-5.4
+	  // Ensure Host is the first header.
+	  // See: http://tools.ietf.org/html/rfc7230#section-5.4
 		$this->headers = [$header => [$host]] + $this->headers;
 	}
 
-	public function getProtocolVersion()
+	public function getProtocolVersion(): string
 	{
 		return $this->protocol;
 	}
 
-	public function withProtocolVersion($version)
+	public function withProtocolVersion($version): MessageInterface
 	{
 		if ($this->protocol === $version) {
 			return $this;
@@ -169,77 +170,77 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	public function getHeaders()
+	public function getHeaders(): array
 	{
 		return $this->headers;
 	}
 
-	public function hasHeader($header)
+	public function hasHeader($name): bool
 	{
-		return isset($this->headerNames[strtolower($header)]);
+		return isset($this->headerNames[strtolower($name)]);
 	}
 
-	public function getHeader($header)
+	public function getHeader($name): array
 	{
-		$header = strtolower($header);
+		$name = strtolower($name);
 
-		if (!isset($this->headerNames[$header])) {
+		if (!isset($this->headerNames[$name])) {
 			return [];
 		}
 
-		$header = $this->headerNames[$header];
+		$name = $this->headerNames[$name];
 
-		return $this->headers[$header];
+		return $this->headers[$name];
 	}
 
-	public function getHeaderLine($header)
+	public function getHeaderLine($name): string
 	{
-		return implode(', ', $this->getHeader($header));
+		return implode(', ', $this->getHeader($name));
 	}
 
-	public function withHeader($header, $value)
+	public function withHeader($name, $value): MessageInterface
 	{
-		if (!is_array($value)) {
+		if (false === is_array($value)) {
 			$value = [$value];
 		}
 
 		$value = $this->trimHeaderValues($value);
-		$normalized = strtolower($header);
+		$normalized = strtolower($name);
 
 		$new = clone $this;
 		if (isset($new->headerNames[$normalized])) {
 			unset($new->headers[$new->headerNames[$normalized]]);
 		}
-		$new->headerNames[$normalized] = $header;
-		$new->headers[$header] = $value;
+		$new->headerNames[$normalized] = $name;
+		$new->headers[$name] = $value;
 
 		return $new;
 	}
 
-	public function withAddedHeader($header, $value)
+	public function withAddedHeader($name, $value): MessageInterface
 	{
-		if (!is_array($value)) {
+		if (false === is_array($value)) {
 			$value = [$value];
 		}
 
 		$value = $this->trimHeaderValues($value);
-		$normalized = strtolower($header);
+		$normalized = strtolower($name);
 
 		$new = clone $this;
 		if (isset($new->headerNames[$normalized])) {
-			$header = $this->headerNames[$normalized];
-			$new->headers[$header] = array_merge($this->headers[$header], $value);
+			$name = $this->headerNames[$normalized];
+			$new->headers[$name] = array_merge($this->headers[$name], $value);
 		} else {
-			$new->headerNames[$normalized] = $header;
-			$new->headers[$header] = $value;
+			$new->headerNames[$normalized] = $name;
+			$new->headers[$name] = $value;
 		}
 
 		return $new;
 	}
 
-	public function withoutHeader($header)
+	public function withoutHeader($name): MessageInterface
 	{
-		$normalized = strtolower($header);
+		$normalized = strtolower($name);
 
 		if (!isset($this->headerNames[$normalized])) {
 			return $this;
@@ -253,7 +254,7 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	public function getBody()
+	public function getBody(): StreamInterface
 	{
 		if (!$this->stream) {
 			$this->stream = Stream::create('');
@@ -263,7 +264,7 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $this->stream;
 	}
 
-	public function withBody(StreamInterface $body)
+	public function withBody(StreamInterface $body): MessageInterface
 	{
 		if ($body === $this->stream) {
 			return $this;
@@ -275,7 +276,7 @@ class Request implements \Psr\Http\Message\RequestInterface
 		return $new;
 	}
 
-	private function setHeaders(array $headers)
+	private function setHeaders(array $headers): void
 	{
 		$this->headerNames = $this->headers = [];
 		foreach ($headers as $header => $value) {
@@ -295,23 +296,23 @@ class Request implements \Psr\Http\Message\RequestInterface
 		}
 	}
 
-	/**
-	 * Trims whitespace from the header values.
-	 *
-	 * Spaces and tabs ought to be excluded by parsers when extracting the field value from a header field.
-	 *
-	 * header-field = field-name ":" OWS field-value OWS
-	 * OWS          = *( SP / HTAB )
-	 *
-	 * @param string[] $values Header values
-	 *
-	 * @return string[] Trimmed header values
-	 *
-	 * @see https://tools.ietf.org/html/rfc7230#section-3.2.4
-	 */
-	private function trimHeaderValues(array $values)
+  /**
+   * Trims whitespace from the header values.
+   *
+   * Spaces and tabs ought to be excluded by parsers when extracting the field value from a header field.
+   *
+   * header-field = field-name ":" OWS field-value OWS
+   * OWS          = *( SP / HTAB )
+   *
+   * @param string[] $values Header values
+   *
+   * @return string[] Trimmed header values
+   *
+   * @see https://tools.ietf.org/html/rfc7230#section-3.2.4
+   */
+	private function trimHeaderValues(array $values): array
 	{
-		return array_map(function ($value) {
+		return array_map(static function ($value) {
 			return trim($value, " \t");
 		}, $values);
 	}
